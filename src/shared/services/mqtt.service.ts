@@ -11,7 +11,7 @@ const expectedTopics: Record<string, string> = {
 };
 
 export const connectMqtt = async () => {
-  let buffer: Record<string, number> = {};
+  let buffer: Record<string, any> = {};
   const receivedTopics = new Set();
 
   const client = mqtt.connect('mqtt://mqtt-broker:1883');
@@ -27,12 +27,19 @@ export const connectMqtt = async () => {
     try {
       const value = JSON.parse(message.toString());
 
+      const misMatch =
+        Object.values(buffer).filter((val) => val?.deviceId !== value?.deviceId)
+          .length > 0;
+      console.log('🚀 ~ connectMqtt ~ misMatch:', misMatch);
+
+      if (misMatch) return;
+
       buffer[expectedTopics[topic]] = value;
       receivedTopics.add(topic);
 
       if (receivedTopics.size === Object.keys(expectedTopics).length) {
         const sensorData = await storeSensorData(buffer);
-        
+
         // Broadcast the sensor data to all connected WebSocket clients
         if (sensorData) {
           WebSocketService.broadcastSensorData(sensorData);

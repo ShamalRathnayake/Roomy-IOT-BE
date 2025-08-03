@@ -7,6 +7,10 @@
 #include <ArduinoJson.h>
 #include <PubSubClient.h>
 
+const char* deviceId = "Abtr75Fhom";
+unsigned long lastPublish = 0;
+
+
 // display setup
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
@@ -394,18 +398,17 @@ void updateDisplay(AHT21_Readings aht21,
   display.setCursor(0, 0);
   display.setTextSize(1);
 
-  display.println("Sensor Data:");
+  display.print("Device ID: ");
+  display.println(deviceId);
 
-  display.printf("T:%.1fC H:%.0f%% D:%.1f ", aht21.temperature, aht21.humidity, aht21.dewPoint);
+  display.printf("\nT:%.1fC H:%.0f%% D:%.1f\n", aht21.temperature, aht21.humidity, aht21.dewPoint);
   display.printf("HI:%.1f AH:%.1f\n", aht21.heatIndex, aht21.absoluteHumidity);
 
-  display.printf("AQI:%d CO2:%.4f TVOC:%.4d ", ens160.aqi, ens160.eco2, ens160.tvoc);
+  display.printf("AQI:%d CO2:%.1f\n", ens160.aqi, ens160.eco2);
 
-  display.printf("CO:%.1f CH4:%.1f LPG:%.1f ", mq9.co_ppm, mq9.ch4_ppm, mq9.lpg_ppm);
+  display.printf("CO:%.1f LPG:%.1f\n", mq9.co_ppm, mq9.lpg_ppm);
 
-  display.printf("NH3:%.1f Alc:%.1f Benz:%.1f ", mq135.nh3, mq135.alcohol, mq135.benzene);
-
-  display.printf("Tol:%.1f Ace:%.1f ", mq135.toluene, mq135.acetone);
+  display.printf("NH3:%.1f Alc:%.1f\n", mq135.nh3, mq135.alcohol);
 
   display.printf("Flame:%s ", flameDetected ? "YES" : "NO");
 
@@ -426,27 +429,32 @@ void publishSensorData(AHT21_Readings aht21,
   StaticJsonDocument<512> docENS160;
 
   // AHT21 readings
+  docAHT21["deviceId"] = deviceId;
   docAHT21["temperature"] = aht21.temperature;
   docAHT21["humidity"] = aht21.humidity;
 
   // ENS160 readings
+  docENS160["deviceId"] = deviceId;
   docENS160["aqi"] = ens160.aqi;
   docENS160["eco2"] = ens160.eco2;
   docENS160["tvoc"] = ens160.tvoc;
 
   // // MQ-9 readings
+  docMQ9["deviceId"] = deviceId;
   docMQ9["co_ppm"] = mq9.co_ppm;
   docMQ9["ch4_ppm"] = mq9.ch4_ppm;
   docMQ9["lpg_ppm"] = mq9.lpg_ppm;
 
   // // MQ-135 readings
-  // docMQ135["nh3"] = mq135.nh3;
+  docMQ135["deviceId"] = deviceId;
+  docMQ135["nh3"] = mq135.nh3;
   docMQ135["co2"] = mq135.co2;
   docMQ135["alcohol"] = mq135.alcohol;
   docMQ135["toluene"] = mq135.toluene;
   docMQ135["acetone"] = mq135.acetone;
 
   // // Flame sensor
+  docTemp["deviceId"] = deviceId;
   docTemp["flame_detected"] = flameDigital;
   docTemp["flame_intensity"] = flameAnalog;
 
@@ -587,20 +595,25 @@ void loop() {
   }
   client.loop();
 
-  publishSensorData(aht21_data,
-                    ens160_data,
-                    mq9_data,
-                    mq135_data,
-                    flameDetected,
-                    flameIntensity);
-
-
   if (flameDetected) {
     digitalWrite(Buzzer_digitalPin, HIGH);
   } else {
     digitalWrite(Buzzer_digitalPin, LOW);
   }
 
+  if (millis() - lastPublish >= 5000) {
+    lastPublish = millis();
 
-  delay(5000);
+    publishSensorData(
+      aht21_data,
+      ens160_data,
+      mq9_data,
+      mq135_data,
+      flameDetected,
+      flameIntensity
+    );
+  }
+
+
+  delay(1000);
 }

@@ -55,6 +55,7 @@ export class SensorDataService {
       coPpm,
       ch4Ppm,
       lpgPpm,
+      nh3,
       co2,
       alcohol,
       toluene,
@@ -90,6 +91,9 @@ export class SensorDataService {
     }
     if (lpgPpm) {
       filters.lpgPpm = { $gte: parseFloat(lpgPpm) };
+    }
+    if (nh3) {
+      filters.nh3 = { $gte: parseFloat(nh3) };
     }
     if (co2) {
       filters.co2 = { $gte: parseFloat(co2) };

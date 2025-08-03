@@ -4,6 +4,10 @@ import { SensorData } from './sensorData.types';
 
 const SensorDataSchema: Schema = new Schema(
   {
+    deviceID: {
+      type: String,
+      required: true,
+    },
     temperature: {
       type: Number,
       default: 0,
@@ -33,6 +37,10 @@ const SensorDataSchema: Schema = new Schema(
       default: 0,
     },
     lpgPpm: {
+      type: Number,
+      default: 0,
+    },
+    nh3: {
       type: Number,
       default: 0,
     },

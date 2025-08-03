@@ -7,6 +7,7 @@ export type SensorData = {
   coPpm: number;
   ch4Ppm: number;
   lpgPpm: number;
+  nh3: number;
   co2: number;
   alcohol: number;
   toluene: number;

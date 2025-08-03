@@ -11,6 +11,7 @@ export const getSensorDataSchema = Joi.object().keys({
   coPpm: Joi.number().min(0).optional(),
   ch4Ppm: Joi.number().min(0).optional(),
   lpgPpm: Joi.number().min(0).optional(),
+  nh3: Joi.number().min(0).optional(),
   co2: Joi.number().min(0).optional(),
   alcohol: Joi.number().min(0).optional(),
   toluene: Joi.number().min(0).optional(),
