@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Roomy Sensor Data WebSocket Test</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      .container {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+      .status {
+        padding: 10px;
+        margin: 10px 0;
+        border-radius: 4px;
+        font-weight: bold;
+      }
+      .connected {
+        background-color: #d4edda;
+        color: #155724;
+      }
+      .disconnected {
+        background-color: #f8d7da;
+        color: #721c24;
+      }
+      .data-container {
+        max-height: 400px;
+        overflow-y: auto;
+        border: 1px solid #ddd;
+        padding: 10px;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+      }
+      .sensor-data {
+        background: white;
+        padding: 10px;
+        margin: 5px 0;
+        border-radius: 4px;
+        border-left: 4px solid #007bff;
+      }
+      .timestamp {
+        color: #666;
+        font-size: 0.9em;
+      }
+      .sensor-values {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 10px;
+        margin-top: 10px;
+      }
+      .sensor-value {
+        background: #e9ecef;
+        padding: 5px 10px;
+        border-radius: 4px;
+        font-family: monospace;
+      }
+      button {
+        background: #007bff;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        margin: 5px;
+      }
+      button:hover {
+        background: #0056b3;
+      }
+      button:disabled {
+        background: #6c757d;
+        cursor: not-allowed;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🔌 Roomy Sensor Data WebSocket Test</h1>
+
+      <div id="connectionStatus" class="status disconnected">Disconnected</div>
+
+      <div>
+        <button id="connectBtn" onclick="connect()">Connect</button>
+        <button id="disconnectBtn" onclick="disconnect()" disabled>
+          Disconnect
+        </button>
+        <button onclick="clearData()">Clear Data</button>
+      </div>
+
+      <div>
+        <h3>Connection Info:</h3>
+        <p>Client ID: <span id="clientId">-</span></p>
+        <p>Total Clients: <span id="totalClients">0</span></p>
+      </div>
+
+      <div>
+        <h3>📊 Real-time Sensor Data:</h3>
+        <div id="sensorDataContainer" class="data-container">
+          <p>No sensor data received yet...</p>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      let socket = null;
+      let dataCount = 0;
+
+      function connect() {
+        if (socket) return;
+
+        // Connect to WebSocket server
+        socket = io('http://localhost:4000');
+
+        socket.on('connect', () => {
+          updateStatus('Connected', true);
+          document.getElementById('connectBtn').disabled = true;
+          document.getElementById('disconnectBtn').disabled = false;
+        });
+
+        socket.on('disconnect', () => {
+          updateStatus('Disconnected', false);
+          document.getElementById('connectBtn').disabled = false;
+          document.getElementById('disconnectBtn').disabled = true;
+        });
+
+        socket.on('connectionInfo', (info) => {
+          document.getElementById('clientId').textContent = info.clientId;
+          document.getElementById('totalClients').textContent =
+            info.totalClients;
+        });
+
+        socket.on('sensorData', (data) => {
+          displaySensorData(data);
+        });
+      }
+
+      function disconnect() {
+        if (socket) {
+          socket.disconnect();
+          socket = null;
+          updateStatus('Disconnected', false);
+          document.getElementById('connectBtn').disabled = false;
+          document.getElementById('disconnectBtn').disabled = true;
+        }
+      }
+
+      function updateStatus(message, connected) {
+        const statusEl = document.getElementById('connectionStatus');
+        statusEl.textContent = message;
+        statusEl.className = `status ${connected ? 'connected' : 'disconnected'}`;
+      }
+
+      function displaySensorData(data) {
+        const container = document.getElementById('sensorDataContainer');
+        dataCount++;
+
+        const dataDiv = document.createElement('div');
+        dataDiv.className = 'sensor-data';
+
+        const timestamp = new Date(data.timestamp).toLocaleString();
+        const sensorData = data.data;
+
+        let html = `
+                <div class="timestamp">📅 ${timestamp} (Message #${dataCount})</div>
+                <div class="sensor-values">
+            `;
+
+        // Display all sensor values
+        Object.entries(sensorData).forEach(([key, value]) => {
+          if (key !== '_id' && key !== '__v' && key !== 'timestamp') {
+            const displayValue =
+              typeof value === 'boolean' ? (value ? '✅ Yes' : '❌ No') : value;
+            html += `<div class="sensor-value"><strong>${key}:</strong> ${displayValue}</div>`;
+          }
+        });
+
+        html += '</div>';
+        dataDiv.innerHTML = html;
+
+        // Add to top of container
+        container.insertBefore(dataDiv, container.firstChild);
+
+        // Keep only last 20 messages
+        const messages = container.querySelectorAll('.sensor-data');
+        if (messages.length > 20) {
+          messages[messages.length - 1].remove();
+        }
+      }
+
+      function clearData() {
+        const container = document.getElementById('sensorDataContainer');
+        container.innerHTML = '<p>No sensor data received yet...</p>';
+        dataCount = 0;
+      }
+
+      // Auto-connect on page load
+      window.onload = () => {
+        setTimeout(connect, 1000);
+      };
+    </script>
+  </body>
+</html>
