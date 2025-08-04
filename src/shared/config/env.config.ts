@@ -15,6 +15,8 @@ const envSchema = Joi.object({
   LOG_LEVEL: Joi.string()
     .valid('error', 'warn', 'info', 'verbose', 'debug', 'silly')
     .default('info'),
+  SENDGRID_API_KEY: Joi.string().required(),
+  SENDGRID_EMAIL: Joi.string().required(),
 }).unknown(true);
 
 const { error, value: envVars } = envSchema.validate(process.env);
@@ -29,4 +31,6 @@ export const config = {
   databaseUrl: envVars.DATABASE_URL,
   jwtSecret: envVars.JWT_SECRET,
   logLevel: envVars.LOG_LEVEL,
+  sendgridApiKey: envVars.SENDGRID_API_KEY,
+  sendgridEmail: envVars.SENDGRID_EMAIL,
 };

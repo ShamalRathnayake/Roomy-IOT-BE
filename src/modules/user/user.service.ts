@@ -112,4 +112,11 @@ export class UserService {
       token,
     };
   }
+
+  static async getUserByDeviceId(deviceId: string) {
+    if (!deviceId) throw new Error('Device id is required');
+
+    const user = await UserModel.findOne({ ownedDevices: deviceId });
+    return user;
+  }
 }

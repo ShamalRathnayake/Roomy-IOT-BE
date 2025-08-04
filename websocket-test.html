@@ -33,6 +33,10 @@
         background-color: #f8d7da;
         color: #721c24;
       }
+      .registered {
+        background-color: #cce5ff;
+        color: #004085;
+      }
       .data-container {
         max-height: 400px;
         overflow-y: auto;
@@ -80,6 +84,27 @@
         background: #6c757d;
         cursor: not-allowed;
       }
+      input {
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        margin: 5px;
+        font-size: 14px;
+      }
+      .device-info {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 4px;
+        margin: 10px 0;
+        border-left: 4px solid #28a745;
+      }
+      .error {
+        background-color: #f8d7da;
+        color: #721c24;
+        padding: 10px;
+        border-radius: 4px;
+        margin: 10px 0;
+      }
     </style>
   </head>
   <body>
@@ -96,9 +121,23 @@
         <button onclick="clearData()">Clear Data</button>
       </div>
 
-      <div>
-        <h3>Connection Info:</h3>
+      <div id="deviceRegistration" style="display: none;">
+        <h3>📱 Device Registration:</h3>
+        <div>
+          <input
+            type="text"
+            id="deviceIdInput"
+            placeholder="Enter Device ID"
+            value="device001"
+          />
+          <button id="registerBtn" onclick="registerDevice()">Register Device</button>
+        </div>
+      </div>
+
+      <div id="deviceInfo" class="device-info" style="display: none;">
+        <h4>📱 Device Information:</h4>
         <p>Client ID: <span id="clientId">-</span></p>
+        <p>Device ID: <span id="deviceId">-</span></p>
         <p>Total Clients: <span id="totalClients">0</span></p>
       </div>
 
@@ -113,6 +152,7 @@
     <script>
       let socket = null;
       let dataCount = 0;
+      let currentDeviceId = null;
 
       function connect() {
         if (socket) return;
@@ -121,21 +161,38 @@
         socket = io('http://localhost:4000');
 
         socket.on('connect', () => {
-          updateStatus('Connected', true);
+          updateStatus('Connected - Please register device', 'connected');
           document.getElementById('connectBtn').disabled = true;
           document.getElementById('disconnectBtn').disabled = false;
+          document.getElementById('deviceRegistration').style.display = 'block';
         });
 
         socket.on('disconnect', () => {
-          updateStatus('Disconnected', false);
+          updateStatus('Disconnected', 'disconnected');
           document.getElementById('connectBtn').disabled = false;
           document.getElementById('disconnectBtn').disabled = true;
+          document.getElementById('deviceRegistration').style.display = 'none';
+          document.getElementById('deviceInfo').style.display = 'none';
         });
 
         socket.on('connectionInfo', (info) => {
           document.getElementById('clientId').textContent = info.clientId;
-          document.getElementById('totalClients').textContent =
-            info.totalClients;
+          document.getElementById('totalClients').textContent = info.totalClients;
+          console.log('Connection info:', info);
+        });
+
+        socket.on('deviceRegistered', (info) => {
+          currentDeviceId = info.deviceId;
+          document.getElementById('deviceId').textContent = info.deviceId;
+          document.getElementById('totalClients').textContent = info.totalClients;
+          updateStatus(`Device ${info.deviceId} registered`, 'registered');
+          document.getElementById('deviceInfo').style.display = 'block';
+          console.log('Device registered:', info);
+        });
+
+        socket.on('error', (error) => {
+          showError(error.message);
+          console.error('WebSocket error:', error);
         });
 
         socket.on('sensorData', (data) => {
@@ -143,20 +200,47 @@
         });
       }
 
+      function registerDevice() {
+        if (!socket) return;
+
+        const deviceId = document.getElementById('deviceIdInput').value.trim();
+        if (!deviceId) {
+          showError('Please enter a device ID');
+          return;
+        }
+
+        socket.emit('registerDevice', deviceId);
+        console.log('Registering device:', deviceId);
+      }
+
       function disconnect() {
         if (socket) {
           socket.disconnect();
           socket = null;
-          updateStatus('Disconnected', false);
+          currentDeviceId = null;
+          updateStatus('Disconnected', 'disconnected');
           document.getElementById('connectBtn').disabled = false;
           document.getElementById('disconnectBtn').disabled = true;
+          document.getElementById('deviceRegistration').style.display = 'none';
+          document.getElementById('deviceInfo').style.display = 'none';
         }
       }
 
-      function updateStatus(message, connected) {
+      function updateStatus(message, type) {
         const statusEl = document.getElementById('connectionStatus');
         statusEl.textContent = message;
-        statusEl.className = `status ${connected ? 'connected' : 'disconnected'}`;
+        statusEl.className = `status ${type}`;
+      }
+
+      function showError(message) {
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error';
+        errorDiv.textContent = message;
+        document.querySelector('.container').insertBefore(errorDiv, document.querySelector('.container').firstChild);
+        
+        setTimeout(() => {
+          errorDiv.remove();
+        }, 5000);
       }
 
       function displaySensorData(data) {
@@ -168,9 +252,10 @@
 
         const timestamp = new Date(data.timestamp).toLocaleString();
         const sensorData = data.data;
+        const deviceId = data.deviceId;
 
         let html = `
-                <div class="timestamp">📅 ${timestamp} (Message #${dataCount})</div>
+                <div class="timestamp">📅 ${timestamp} (Message #${dataCount}) - Device: ${deviceId}</div>
                 <div class="sensor-values">
             `;
 

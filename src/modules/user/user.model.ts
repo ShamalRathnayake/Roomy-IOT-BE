@@ -25,6 +25,7 @@ const UserSchema: Schema = new Schema(
     designation: { type: String, required: true },
     phoneNo: { type: String, required: true },
     location: { type: String, required: true },
+    ownedDevices: { type: [String], required: true, default: [] },
   },
   {
     timestamps: true,

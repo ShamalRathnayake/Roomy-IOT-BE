@@ -13,6 +13,7 @@ export const updateUserSchema = Joi.object().keys({
   designation: Joi.string(),
   phoneNo: Joi.string().min(10).max(12),
   location: Joi.string(),
+  ownedDevices: Joi.array().items(Joi.string()),
 });
 
 export const getUserByIdSchema = Joi.object().keys({

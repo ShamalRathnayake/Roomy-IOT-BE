@@ -11,9 +11,11 @@ router.get('/health', (req, res): void => {
 
 router.get('/websocket/status', (req, res): void => {
   const connectedClients = WebSocketService.getConnectedClientsCount();
+  const connectedDevices = WebSocketService.getConnectedDevices();
   res.status(200).json({ 
     success: true, 
     connectedClients,
+    connectedDevices,
     websocketEnabled: true 
   });
 });

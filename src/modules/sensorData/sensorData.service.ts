@@ -1,52 +1,77 @@
 import { SensorDataModel } from './sensorData.model';
-
-export const storeSensorData = async (data: any) => {
-  if (!data) return;
-
-  let sensorData: Record<string, any> = { timestamp: new Date() };
-
-  if (data?.aht21)
-    sensorData = {
-      ...sensorData,
-      ...data.aht21,
-    };
-
-  if (data?.ens160)
-    sensorData = {
-      ...sensorData,
-      ...data.ens160,
-    };
-
-  if (data?.mq9)
-    sensorData = {
-      ...sensorData,
-      coPpm: data.mq9.co_ppm,
-      ch4Ppm: data.mq9.ch4_ppm,
-      lpgPpm: data.mq9.lpg_ppm,
-    };
-
-  if (data?.mq135)
-    sensorData = {
-      ...sensorData,
-      ...data.mq135,
-    };
-
-  if (data?.temp)
-    sensorData = {
-      ...sensorData,
-      flameDetected: data.temp.flame_detected,
-      flameIntensity: 4095 - data.temp.flame_intensity,
-    };
-
-  sensorData = await new SensorDataModel(sensorData).save();
-  return sensorData;
-};
+import { UserModel } from '../user/user.model';
+import { sensorThresholds } from '../../shared/config/sensor.config';
+import { EmailService } from '../../shared/services/email.service';
+import { UserService } from '../user/user.service';
 
 export class SensorDataService {
-  static async getSensorData(query: any) {
+  static async storeSensorData(data: any) {
+    if (!data) return;
+
+    let sensorData: Record<string, any> = { timestamp: new Date() };
+
+    let deviceId = null;
+    const sensorObjects = ['aht21', 'ens160', 'mq9', 'mq135', 'temp'];
+    for (const sensorKey of sensorObjects) {
+      if (data[sensorKey]?.deviceId) {
+        deviceId = data[sensorKey].deviceId;
+        break;
+      }
+    }
+
+    if (!deviceId) {
+      console.log('⚠️ No deviceId found in sensor data');
+      return;
+    }
+
+    sensorData.deviceId = deviceId;
+
+    if (data?.aht21)
+      sensorData = {
+        ...sensorData,
+        ...data.aht21,
+      };
+
+    if (data?.ens160)
+      sensorData = {
+        ...sensorData,
+        ...data.ens160,
+      };
+
+    if (data?.mq9)
+      sensorData = {
+        ...sensorData,
+        coPpm: data.mq9.co_ppm,
+        ch4Ppm: data.mq9.ch4_ppm,
+        lpgPpm: data.mq9.lpg_ppm,
+      };
+
+    if (data?.mq135)
+      sensorData = {
+        ...sensorData,
+        ...data.mq135,
+      };
+
+    if (data?.temp)
+      sensorData = {
+        ...sensorData,
+        flameDetected: data.temp.flame_detected,
+        flameIntensity: 4095 - data.temp.flame_intensity,
+      };
+
+    const user = await UserService.getUserByDeviceId(deviceId);
+
+    sensorData = (await new SensorDataModel(sensorData).save()).toObject();
+
+    await this.checkThreshold(sensorData, user);
+    return sensorData;
+  }
+
+  static async getSensorData(query: any, userId: string) {
     const {
       page = '1',
       limit = '10',
+      deviceId,
       temperature,
       humidity,
       aqi,
@@ -66,8 +91,25 @@ export class SensorDataService {
       endDate,
     } = query;
 
+    if (!deviceId) {
+      throw new Error('Device ID is required');
+    }
+
+    const user = await UserModel.findById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    if (!user.ownedDevices.includes(deviceId)) {
+      throw new Error('You do not have access to this device');
+    }
+
     const filters: Record<string, any> = {};
 
+    // Add deviceId filter
+    filters.deviceId = deviceId;
+
+    // Add numeric filters
     if (temperature) {
       filters.temperature = { $gte: parseFloat(temperature) };
     }
@@ -156,5 +198,39 @@ export class SensorDataService {
         prevPage: hasPrevPage ? pageNum - 1 : null,
       },
     };
+  }
+
+  static async checkThreshold(sensorData: Record<string, any>, user: any) {
+    const sensorValues = Object.entries(sensorData);
+
+    const alertValues = [];
+
+    for (const [key, value] of sensorValues) {
+      if (
+        sensorThresholds[key]?.max <= value ||
+        (key === 'flameDetected' && sensorData?.flameDetected)
+      ) {
+        alertValues.push(
+          key === 'flameDetected'
+            ? {
+                type: 'flameDetected',
+                threshold: null,
+                currentValue: sensorData?.flameIntensity,
+              }
+            : {
+                type: key,
+                threshold: sensorThresholds[key].max,
+                currentValue: value,
+              }
+        );
+      }
+    }
+
+    if (alertValues.length === 0) return;
+
+    await EmailService.sendEmail({
+      to: user.email,
+      data: alertValues,
+    });
   }
 }

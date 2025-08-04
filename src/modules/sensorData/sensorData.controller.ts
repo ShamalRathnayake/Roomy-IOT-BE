@@ -14,7 +14,13 @@ export const getSensorData = async (
   try {
     await logRequestInit(req, 'getSensorData', 'Sensor data retrieval process started');
     
-    const result = await SensorDataService.getSensorData(req.query);
+    // Extract user ID from token
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new Error('User not authenticated');
+    }
+    
+    const result = await SensorDataService.getSensorData(req.query, userId);
     
     await logRequestEnd(req, 'getSensorData', 'Sensor data retrieved successfully');
 

@@ -1,5 +1,5 @@
 import mqtt from 'mqtt';
-import { storeSensorData } from '../../modules/sensorData/sensorData.service';
+import { SensorDataService } from '../../modules/sensorData/sensorData.service';
 import { WebSocketService } from './websocket.service';
 
 const expectedTopics: Record<string, string> = {
@@ -30,7 +30,6 @@ export const connectMqtt = async () => {
       const misMatch =
         Object.values(buffer).filter((val) => val?.deviceId !== value?.deviceId)
           .length > 0;
-      console.log('🚀 ~ connectMqtt ~ misMatch:', misMatch);
 
       if (misMatch) return;
 
@@ -38,9 +37,8 @@ export const connectMqtt = async () => {
       receivedTopics.add(topic);
 
       if (receivedTopics.size === Object.keys(expectedTopics).length) {
-        const sensorData = await storeSensorData(buffer);
+        const sensorData = await SensorDataService.storeSensorData(buffer);
 
-        // Broadcast the sensor data to all connected WebSocket clients
         if (sensorData) {
           WebSocketService.broadcastSensorData(sensorData);
         }

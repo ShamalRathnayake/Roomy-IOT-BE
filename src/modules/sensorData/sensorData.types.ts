@@ -14,4 +14,5 @@ export type SensorData = {
   acetone: number;
   flameDetected: boolean;
   flameIntensity: number;
+  deviceId: string;
 };

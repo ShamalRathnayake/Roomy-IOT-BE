@@ -8,6 +8,7 @@ export interface IUser extends Document {
   phoneNo: number;
   location: string;
   role: string;
+  ownedDevices: string[];
   generateAuthToken(): string;
   comparePassword(candidatePassword: string): Promise<boolean>;
 }

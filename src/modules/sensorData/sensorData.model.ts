@@ -4,7 +4,7 @@ import { SensorData } from './sensorData.types';
 
 const SensorDataSchema: Schema = new Schema(
   {
-    deviceID: {
+    deviceId: {
       type: String,
       required: true,
     },

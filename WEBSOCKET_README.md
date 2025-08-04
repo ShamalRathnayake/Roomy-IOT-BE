@@ -1,11 +1,12 @@
 # WebSocket Server for Real-time Sensor Data
 
-This implementation adds WebSocket functionality to broadcast real-time sensor data to connected clients when new MQTT messages are received and stored in the database.
+This implementation adds WebSocket functionality to broadcast real-time sensor data to connected clients when new MQTT messages are received and stored in the database. **Clients must register with a deviceId to receive updates for that specific device.**
 
 ## Features
 
-- **Real-time Broadcasting**: Automatically broadcasts sensor data to all connected WebSocket clients
-- **Connection Management**: Tracks connected clients and provides connection status
+- **Device-Specific Broadcasting**: Only clients registered with matching deviceId receive sensor data
+- **Device Registration**: Clients must register their deviceId to receive updates
+- **Connection Management**: Tracks connected clients and their device associations
 - **MQTT Integration**: Seamlessly integrates with existing MQTT service
 - **CORS Support**: Configured for cross-origin requests
 - **Status Endpoint**: HTTP endpoint to check WebSocket connection status
@@ -15,9 +16,9 @@ This implementation adds WebSocket functionality to broadcast real-time sensor d
 ### Components
 
 1. **WebSocketService** (`src/shared/services/websocket.service.ts`)
-   - Manages WebSocket connections
-   - Broadcasts sensor data to clients
-   - Tracks connected clients
+   - Manages WebSocket connections with deviceId mapping
+   - Broadcasts sensor data only to clients with matching deviceId
+   - Tracks connected clients and their device associations
 
 2. **MQTT Integration** (`src/shared/services/mqtt.service.ts`)
    - Enhanced to broadcast data via WebSocket when sensor data is stored
@@ -39,6 +40,7 @@ GET /websocket/status
 {
   "success": true,
   "connectedClients": 2,
+  "connectedDevices": ["device001", "device002"],
   "websocketEnabled": true
 }
 ```
@@ -47,6 +49,10 @@ GET /websocket/status
 
 ### Client → Server
 - `connect`: Client connects to WebSocket server
+- `registerDevice`: Client registers deviceId to receive updates
+  ```javascript
+  socket.emit('registerDevice', 'device001');
+  ```
 - `disconnect`: Client disconnects from WebSocket server
 
 ### Server → Client
@@ -54,10 +60,25 @@ GET /websocket/status
   ```json
   {
     "clientId": "socket_id",
+    "totalClients": 3,
+    "message": "Please register your device ID using the \"registerDevice\" event"
+  }
+  ```
+- `deviceRegistered`: Sent when device registration is successful
+  ```json
+  {
+    "clientId": "socket_id",
+    "deviceId": "device001",
     "totalClients": 3
   }
   ```
-- `sensorData`: Broadcasted when new sensor data is stored
+- `error`: Sent when registration fails
+  ```json
+  {
+    "message": "Device ID is required"
+  }
+  ```
+- `sensorData`: Broadcasted to clients with matching deviceId
   ```json
   {
     "timestamp": "2024-01-15T10:30:00.000Z",
@@ -78,7 +99,8 @@ GET /websocket/status
       "flameDetected": false,
       "flameIntensity": 0,
       "timestamp": "2024-01-15T10:30:00.000Z"
-    }
+    },
+    "deviceId": "device001"
   }
   ```
 
@@ -92,16 +114,23 @@ const socket = io('http://localhost:3000');
 
 socket.on('connect', () => {
   console.log('Connected to WebSocket server');
+  
+  // Register device to receive updates
+  socket.emit('registerDevice', 'device001');
 });
 
-socket.on('connectionInfo', (info) => {
-  console.log('Client ID:', info.clientId);
+socket.on('deviceRegistered', (info) => {
+  console.log('Device registered:', info.deviceId);
   console.log('Total clients:', info.totalClients);
 });
 
 socket.on('sensorData', (data) => {
-  console.log('New sensor data:', data);
-  // Handle real-time sensor data
+  console.log('New sensor data for device:', data.deviceId);
+  console.log('Sensor data:', data.data);
+});
+
+socket.on('error', (error) => {
+  console.error('WebSocket error:', error.message);
 });
 
 socket.on('disconnect', () => {
@@ -115,11 +144,23 @@ const socket = io('http://localhost:3000');
 
 socket.on('connect', () => {
   console.log('Connected to WebSocket server');
+  
+  // Register device to receive updates
+  socket.emit('registerDevice', 'device001');
+});
+
+socket.on('deviceRegistered', (info) => {
+  console.log('Device registered:', info.deviceId);
+  // Update UI to show device is registered
 });
 
 socket.on('sensorData', (data) => {
-  console.log('New sensor data:', data);
+  console.log('New sensor data for device:', data.deviceId);
   // Update UI with real-time data
+});
+
+socket.on('error', (error) => {
+  console.error('WebSocket error:', error.message);
 });
 ```
 
@@ -129,7 +170,8 @@ socket.on('sensorData', (data) => {
 1. Start the server: `npm run dev`
 2. Open `websocket-test.html` in a browser
 3. Click "Connect" to establish WebSocket connection
-4. When MQTT messages are received, sensor data will appear in real-time
+4. Enter a device ID and click "Register Device"
+5. When MQTT messages are received for that device, sensor data will appear in real-time
 
 ### Manual Testing
 ```bash
@@ -139,10 +181,20 @@ curl http://localhost:3000/websocket/status
 # Expected response:
 {
   "success": true,
-  "connectedClients": 0,
+  "connectedClients": 1,
+  "connectedDevices": ["device001"],
   "websocketEnabled": true
 }
 ```
+
+## Device ID Extraction
+
+The system automatically extracts deviceId from sensor data in the following order:
+
+1. **Direct deviceId field**: `sensorData.deviceId`
+2. **Sensor object deviceId**: `sensorData.aht21.deviceId`, `sensorData.ens160.deviceId`, etc.
+
+If no deviceId is found in the sensor data, the broadcast is skipped.
 
 ## Configuration
 
@@ -175,44 +227,47 @@ npm install socket.io @types/socket.io
 ## Flow Diagram
 
 ```
-MQTT Broker → MQTT Service → Store in Database → WebSocket Service → Broadcast to Clients
-     ↓              ↓              ↓                    ↓                    ↓
-  Sensor Data   Parse Data   Save to MongoDB    Format Data      Send to All Clients
+MQTT Broker → MQTT Service → Store in Database → Extract DeviceId → WebSocket Service → Broadcast to Matching Clients
+     ↓              ↓              ↓                    ↓                    ↓                    ↓
+  Sensor Data   Parse Data   Save to MongoDB    Find DeviceId    Filter by DeviceId    Send to Specific Clients
 ```
 
 ## Security Considerations
 
-1. **CORS Configuration**: Restrict origins in production
-2. **Rate Limiting**: Consider implementing rate limiting for WebSocket connections
-3. **Authentication**: Add authentication if needed for sensitive data
-4. **Input Validation**: Validate all incoming WebSocket messages
+1. **Device Authentication**: Consider adding authentication for device registration
+2. **CORS Configuration**: Restrict origins in production
+3. **Rate Limiting**: Consider implementing rate limiting for WebSocket connections
+4. **Input Validation**: Validate deviceId format and length
+5. **Device Isolation**: Ensure devices can only receive their own data
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Connection Refused**
-   - Ensure server is running on correct port
-   - Check firewall settings
-
-2. **CORS Errors**
-   - Verify CORS configuration in WebSocket service
-   - Check client origin settings
-
-3. **No Data Received**
+1. **No Data Received**
+   - Ensure device is registered with correct deviceId
    - Verify MQTT broker is running and sending data
-   - Check WebSocket connection status
-   - Ensure sensor data is being stored in database
+   - Check that sensor data contains deviceId
+   - Verify WebSocket connection status
+
+2. **Device Registration Fails**
+   - Ensure deviceId is provided and not empty
+   - Check WebSocket connection is established first
+
+3. **Wrong Device Receiving Data**
+   - Verify deviceId in sensor data matches registered deviceId
+   - Check for deviceId extraction logic
 
 ### Debug Logs
 The server provides detailed logging:
 - WebSocket connections/disconnections
+- Device registration events
 - MQTT message processing
-- Data broadcasting events
+- Device-specific data broadcasting events
 
 ## Performance Considerations
 
 - WebSocket connections are lightweight
-- Broadcasting is efficient for multiple clients
+- Device-specific broadcasting is more efficient than broadcasting to all clients
 - Consider implementing rooms/namespaces for large-scale deployments
-- Monitor memory usage with many concurrent connections 
+- Monitor memory usage with many concurrent device connections 
