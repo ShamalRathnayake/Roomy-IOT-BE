@@ -94,7 +94,7 @@ export class UserService {
     if (!password) throw createBadRequest('Password is required');
 
     const existingUser = await UserModel.findOne({ email }).select(
-      'password email phoneNo role designation location'
+      'password email phoneNo role designation location ownedDevices'
     );
     if (!existingUser)
       throw createBadRequest('User not found with given email');
