@@ -1,6 +1,14 @@
-import sgMail from '@sendgrid/mail';
 import { config } from '../config/env.config';
-sgMail.setApiKey(config.sendgridApiKey);
+
+import nodemailer from 'nodemailer';
+
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: config.sendgridEmail,
+    pass: config.sendgridApiKey,
+  },
+});
 
 interface EmailOptions {
   to: string;
@@ -17,7 +25,7 @@ export class EmailService {
     };
 
     try {
-      await sgMail.send(msg);
+      await transporter.sendMail(msg);
       console.log(`✅ Email sent to ${options.to}`);
     } catch (error: any) {
       console.error(
@@ -88,11 +96,12 @@ export class EmailService {
         margin-top: 20px;
         padding: 12px 24px;
         background-color: #162f70;
-        color: #ffffff;
+        color: #ffffff !important;
         text-decoration: none;
         border-radius: 6px;
         font-weight: bold;
         text-align: center;
+
       }
       .footer {
         text-align: center;

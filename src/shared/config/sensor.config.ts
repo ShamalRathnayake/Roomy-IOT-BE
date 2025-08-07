@@ -1,5 +1,5 @@
 export const sensorThresholds: Record<string, Record<string, number>> = {
-  temperature: { max: 35 },
+  temperature: { max: 40 },
   humidity: { max: 90 },
   aqi: { max: 100 },
   eco2: { max: 1000 },
@@ -7,11 +7,11 @@ export const sensorThresholds: Record<string, Record<string, number>> = {
   coPpm: { max: 50 },
   ch4Ppm: { max: 100 },
   lpgPpm: { max: 200 },
-  nh3: { max: 50 },
+  nh3: { max: 100 },
   co2: { max: 1200 },
   alcohol: { max: 300 },
-  toluene: { max: 50 },
-  acetone: { max: 50 },
+  toluene: { max: 100 },
+  acetone: { max: 100 },
   flameIntensity: { max: 180 },
 };
 

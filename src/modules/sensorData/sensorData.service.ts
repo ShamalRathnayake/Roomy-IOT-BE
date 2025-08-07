@@ -226,6 +226,11 @@ export class SensorDataService {
       }
     }
 
+    console.log(
+      '🚀 ~ SensorDataService ~ checkThreshold ~ alertValues:',
+      alertValues
+    );
+
     if (alertValues.length === 0) return;
 
     await EmailService.sendEmail({
