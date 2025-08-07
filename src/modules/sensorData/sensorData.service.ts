@@ -72,21 +72,7 @@ export class SensorDataService {
       page = '1',
       limit = '10',
       deviceId,
-      temperature,
-      humidity,
-      aqi,
-      eco2,
-      tvoc,
-      coPpm,
-      ch4Ppm,
-      lpgPpm,
-      nh3,
-      co2,
-      alcohol,
-      toluene,
-      acetone,
-      flameDetected,
-      flameIntensity,
+      sensorType = 'all',
       startDate,
       endDate,
     } = query;
@@ -104,58 +90,9 @@ export class SensorDataService {
       throw new Error('You do not have access to this device');
     }
 
-    const filters: Record<string, any> = {};
-
-    // Add deviceId filter
-    filters.deviceId = deviceId;
-
-    // Add numeric filters
-    if (temperature) {
-      filters.temperature = { $gte: parseFloat(temperature) };
-    }
-    if (humidity) {
-      filters.humidity = { $gte: parseFloat(humidity) };
-    }
-    if (aqi) {
-      filters.aqi = { $gte: parseFloat(aqi) };
-    }
-    if (eco2) {
-      filters.eco2 = { $gte: parseFloat(eco2) };
-    }
-    if (tvoc) {
-      filters.tvoc = { $gte: parseFloat(tvoc) };
-    }
-    if (coPpm) {
-      filters.coPpm = { $gte: parseFloat(coPpm) };
-    }
-    if (ch4Ppm) {
-      filters.ch4Ppm = { $gte: parseFloat(ch4Ppm) };
-    }
-    if (lpgPpm) {
-      filters.lpgPpm = { $gte: parseFloat(lpgPpm) };
-    }
-    if (nh3) {
-      filters.nh3 = { $gte: parseFloat(nh3) };
-    }
-    if (co2) {
-      filters.co2 = { $gte: parseFloat(co2) };
-    }
-    if (alcohol) {
-      filters.alcohol = { $gte: parseFloat(alcohol) };
-    }
-    if (toluene) {
-      filters.toluene = { $gte: parseFloat(toluene) };
-    }
-    if (acetone) {
-      filters.acetone = { $gte: parseFloat(acetone) };
-    }
-    if (flameIntensity) {
-      filters.flameIntensity = { $gte: parseFloat(flameIntensity) };
-    }
-
-    if (flameDetected !== undefined) {
-      filters.flameDetected = flameDetected === 'true';
-    }
+    const filters: Record<string, any> = {
+      deviceId,
+    };
 
     if (startDate || endDate) {
       filters.timestamp = {};
@@ -171,22 +108,29 @@ export class SensorDataService {
     const limitNum = parseInt(limit);
     const skip = (pageNum - 1) * limitNum;
 
-    const mongoQuery = Object.keys(filters).length > 0 ? filters : {};
+    const totalCount = await SensorDataModel.countDocuments(filters);
 
-    const totalCount = await SensorDataModel.countDocuments(mongoQuery);
-
-    const data = await SensorDataModel.find(mongoQuery)
+    const data = await SensorDataModel.find(filters)
       .sort({ timestamp: -1 })
       .skip(skip)
       .limit(limitNum)
       .lean();
+
+    const filteredData =
+      sensorType === 'all'
+        ? data
+        : data.map((entry) => ({
+            timestamp: entry.timestamp,
+            deviceId: entry.deviceId,
+            [sensorType]: entry[sensorType],
+          }));
 
     const totalPages = Math.ceil(totalCount / limitNum);
     const hasNextPage = pageNum < totalPages;
     const hasPrevPage = pageNum > 1;
 
     return {
-      data,
+      data: filteredData,
       pagination: {
         currentPage: pageNum,
         totalPages,

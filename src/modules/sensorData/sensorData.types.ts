@@ -15,4 +15,5 @@ export type SensorData = {
   flameDetected: boolean;
   flameIntensity: number;
   deviceId: string;
+  timestamp: string;
 };

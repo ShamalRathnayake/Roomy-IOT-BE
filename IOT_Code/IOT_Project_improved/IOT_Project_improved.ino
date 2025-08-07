@@ -98,7 +98,7 @@ const float AHT21_B = 237.7;
 
 // --------- MQTT setup ----------------- //
 
-const char* mqtt_server = "192.168.8.104";
+const char* mqtt_server = "45.130.165.54";
 const int mqtt_port = 1883;
 const char* mqtt_topic_aht21 = "sensor/data/aht21";
 const char* mqtt_topic_ens160 = "sensor/data/ens160";
